@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+
+    <title>Apache-websocket by Distrotech</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>Apache-websocket</h1>
+        <h2>Apache WebSocket module</h2>
+
+        <section id="downloads">
+          <a href="https://github.com/Distrotech/apache-websocket/zipball/master" class="btn">Download as .zip</a>
+          <a href="https://github.com/Distrotech/apache-websocket/tarball/master" class="btn">Download as .tar.gz</a>
+          <a href="https://github.com/Distrotech/apache-websocket" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+        <h1>
+<a name="apache-websocket" class="anchor" href="#apache-websocket"><span class="octicon octicon-link"></span></a>apache-websocket</h1>
+
+<p>The apache-websocket module is an Apache 2.x server module that may be used to
+process requests using the WebSocket protocol (RFC 6455) by an Apache 2.x
+server. The module consists of a plugin architecture for handling WebSocket
+messaging. Doing so does <em>not</em> require any knowledge of internal Apache
+structures.</p>
+
+<p>This implementation supports protocol versions 7, 8, and 13, along with the
+older draft-76 of the WebSocket protocol. Support for draft-75 is disabled by
+default, but it may be enabled through the draft-76 module configuration.</p>
+
+<p>Due to the extensive differences between the newer drafts and draft-76
+implementations, and because of the Apache module architecture, two separate
+modules are used to support the different protocols.</p>
+
+<p>Although draft-76 is technically obsolete, it is the protocol version that is
+currently implemented by most of the web browsers. When all of the browsers
+finally move to support the latest protocol, simply remove the draft-76 module
+and configuration to drop support.</p>
+
+<h2>
+<a name="download" class="anchor" href="#download"><span class="octicon octicon-link"></span></a>Download</h2>
+
+<pre><code>$ git clone git://github.com/disconnect/apache-websocket.git
+</code></pre>
+
+<h2>
+<a name="building-and-installation" class="anchor" href="#building-and-installation"><span class="octicon octicon-link"></span></a>Building and Installation</h2>
+
+<p>SCons may be used to build the module.</p>
+
+<pre><code>$ scons
+$ sudo scons install
+</code></pre>
+
+<p>For Windows, do not include the word <code>sudo</code> when installing the module. Also,
+the <code>SConstruct</code> file is hard-coded to look for the Apache headers and
+libraries in <code>C:\Program Files\Apache Software Foundation\Apache2.2</code>. You
+will need to install the headers and libraries when installing Apache. The
+<code>Build Headers and Libraries</code> option is disabled by default, so you will have
+to perform a <code>Custom</code> installation of Apache. Refer to the Apache document
+entitled <em>Using Apache HTTP Server on Microsoft Windows</em> for more information.</p>
+
+<p>Alternatively, you may use <code>apxs</code> to build and install the module. Under Linux
+(at least under Ubuntu), use:</p>
+
+<pre><code>$ sudo apxs2 -i -a -c mod_websocket.c
+$ sudo apxs2 -i -a -c mod_websocket_draft76.c
+</code></pre>
+
+<p>You probably only want to use the <code>-a</code> option the first time you issue the
+command, as it may overwrite your configuration each time you execute it (see
+below).</p>
+
+<p>You may use <code>apxs</code> under Mac OS X if you do not want to use SCons. In that
+case, use:</p>
+
+<pre><code>$ sudo apxs -i -a -c mod_websocket.c
+$ sudo apxs -i -a -c mod_websocket_draft76.c
+</code></pre>
+
+<h2>
+<a name="plugins" class="anchor" href="#plugins"><span class="octicon octicon-link"></span></a>Plugins</h2>
+
+<p>While the module is used to handle the WebSocket protocol, plugins are used to
+implement the application-specific handling of WebSocket messages.</p>
+
+<p>A plugin need only have one function exported that returns a pointer to an
+initialized <code>WebSocketPlugin</code> structure. The <code>WebSocketPlugin</code> structure
+consists of the structure size, structure version, and several function
+pointers. The size should be set to the <code>sizeof</code> the <code>WebSocketPlugin</code>
+structure, the version should be set to 0, and the function pointers should be
+set to point to the various functions that will service the requests. The only
+required function is the <code>on_message</code> function for handling incoming messages.</p>
+
+<p>See <code>examples/mod_websocket_echo.c</code> for a simple example implementation of an
+"echo" plugin. A sample <code>client.html</code> is included as well. If you try it and
+you get a message that says Connection Closed, you are likely using a client
+that does not support these versions of the protocol.</p>
+
+<p>A more extensive example may be found in
+<code>examples/mod_websocket_dumb_increment.c</code>. That plugin implements the
+dumb-increment-protocol (see libwebsockets by Andy Green for more information
+on the protocol). There is a test client for testing the module in
+<code>increment.html</code>. It uses the WebSocket client API which supports passing
+supported protocols in the WebSocket constructor. If your browser does not
+support this, either upgrade your browser or modify the plugin so that it
+doesn't verify the protocol.</p>
+
+<p>If you provide an <code>on_connect</code> function, return a non-null value to accept the
+connection, and null if you wish to decline the connection. The return value
+will be passed to your other methods for that connection. During your
+<code>on_connect</code> function, you may access the Apache <code>request_rec</code> structure if you
+wish. You will have to include the appropriate Apache include files. If you do
+not wish to do that, you may also access the headers (both input and output)
+using the provided functions. There are also protocol-specific handling
+functions for selecting the desired protocol for the WebSocket session. You may
+only safely access the <code>send</code> or <code>close</code> functions in your <code>on_connect</code>
+function from a separate thread, as the connection will not be completed until
+you return from the function.</p>
+
+<p>You may use <code>apxs</code>, SCons, or some other build system to be build and install
+the plugins. Also, it does not need to be placed in the same directory as the
+WebSocket module.</p>
+
+<h2>
+<a name="configuration" class="anchor" href="#configuration"><span class="octicon octicon-link"></span></a>Configuration</h2>
+
+<p>The <code>http.conf</code> file is used to configure WebSocket plugins to handle requests
+for particular locations. Inside each <code>Location</code> block, set the handler, using
+the <code>SetHandler</code> keyword, to <code>websocket-handler</code>. Next, add a
+<code>WebSocketHandler</code> entry that contains two parameters. The first is the name of
+the dynamic plugin library that will service the requests for the specified
+location, and the second is the name of the function in the dynamic library
+that will initialize the plugin. For the draft-76 implementation only, you may
+optionally include a flag for supporting the draft-75 version of the WebSocket
+protocol (it will default to "off" if you do not include it). It is enabled
+using the <code>SupportDraft75</code> keyword, along with a value of <code>On</code>.</p>
+
+<p>Here is an example of the configuration changes to <code>http.conf</code> that are used to
+handle the WebSocket plugin requests directed at <code>/echo</code> under Mac OS X. The
+server will initialize the module by calling the <code>echo_init</code> function in
+<code>mod_websocket_echo.so</code>:</p>
+
+<pre><code>LoadModule websocket_module   libexec/apache2/mod_websocket.so
+LoadModule websocket_draft76_module   libexec/apache2/mod_websocket_draft76.so
+
+&lt;IfModule mod_websocket.c&gt;
+  &lt;Location /echo&gt;
+    SetHandler websocket-handler
+    WebSocketHandler libexec/apache2/mod_websocket_echo.so echo_init
+  &lt;/Location&gt;
+  &lt;Location /dumb-increment&gt;
+    SetHandler websocket-handler
+    WebSocketHandler libexec/apache2/mod_websocket_dumb_increment.so dumb_increment_init
+  &lt;/Location&gt;
+&lt;/IfModule&gt;
+
+&lt;IfModule mod_websocket_draft76.c&gt;
+  &lt;Location /echo&gt;
+    SetHandler websocket-handler
+    WebSocketHandler libexec/apache2/mod_websocket_echo.so echo_init
+    SupportDraft75 On
+  &lt;/Location&gt;
+  &lt;Location /dumb-increment&gt;
+    SetHandler websocket-handler
+    WebSocketHandler libexec/apache2/mod_websocket_dumb_increment.so dumb_increment_init
+    SupportDraft75 On
+  &lt;/Location&gt;
+&lt;/IfModule&gt;
+</code></pre>
+
+<p>If your settings are the same between the two modules, you may try to remove
+the <code>&lt;IfModule mod_websocket_draft76.c&gt;</code> section of the configuration (you will
+still need the <code>LoadModule</code> line if you want to support draft-76).</p>
+
+<p>Since we are dealing with messages, not streams, we need to specify a maximum
+message size. The default size is 32 megabytes. You may override this value by
+specifying a <code>MaxMessageSize</code> configuration setting. This option is not
+available for the draft-76 implementation. Here is an example of how to set
+the maximum message size is set to 64 megabytes:</p>
+
+<pre><code>&lt;IfModule mod_websocket.c&gt;
+  &lt;Location /echo&gt;
+    SetHandler websocket-handler
+    WebSocketHandler /usr/lib/apache2/modules/mod_websocket_echo.so echo_init
+    MaxMessageSize 67108864
+  &lt;/Location&gt;
+&lt;/IfModule&gt;
+</code></pre>
+
+<p>Under Linux, the module-specific configuration may be contained in a single
+file called <code>/etc/apache2/mods-available/websocket.load</code> (your version of Linux
+may vary). If you did not use <code>apxs2</code> with the <code>-a</code> option to initially
+create the module, you will have to make a link between
+<code>/etc/apache2/mods-enabled/websocket.load</code> and
+<code>/etc/apache2/mods-available/websocket.load</code>. Take a look at the already enabled
+modules to see how it should look. Since the directory containing the module is
+different from Mac OS X, the configuration will look more like this:</p>
+
+<pre><code>LoadModule websocket_module   /usr/lib/apache2/modules/mod_websocket.so
+LoadModule websocket_draft76_module   /usr/lib/apache2/modules/mod_websocket_draft76.so
+
+&lt;IfModule mod_websocket.c&gt;
+  &lt;Location /echo&gt;
+    SetHandler websocket-handler
+    WebSocketHandler /usr/lib/apache2/modules/mod_websocket_echo.so echo_init
+  &lt;/Location&gt;
+&lt;/IfModule&gt;
+
+&lt;IfModule mod_websocket_draft76.c&gt;
+  &lt;Location /echo&gt;
+    SetHandler websocket-handler
+    WebSocketHandler /usr/lib/apache2/modules/mod_websocket_echo.so echo_init
+    SupportDraft75 On
+  &lt;/Location&gt;
+&lt;/IfModule&gt;
+</code></pre>
+
+<p>This is the configuration that may be overwritten when the <code>-a</code> option is
+included using <code>axps2</code>, so be careful.</p>
+
+<p>Under Windows, the initialization function is of the form <code>_echo_init@0</code>, as it
+is using the <code>__stdcall</code> calling convention:</p>
+
+<pre><code>LoadModule websocket_module   modules/mod_websocket.so
+LoadModule websocket_draft76_module   modules/mod_websocket_draft76.so
+
+&lt;IfModule mod_websocket.c&gt;
+  &lt;Location /echo&gt;
+    SetHandler websocket-handler
+    WebSocketHandler modules/mod_websocket_echo.so _echo_init@0
+  &lt;/Location&gt;
+&lt;/IfModule&gt;
+
+&lt;IfModule mod_websocket_draft76.c&gt;
+  &lt;Location /echo&gt;
+    SetHandler websocket-handler
+    WebSocketHandler modules/mod_websocket_echo.so _echo_init@0
+    SupportDraft75 On
+  &lt;/Location&gt;
+&lt;/IfModule&gt;
+</code></pre>
+
+<p>For all architectures, to drop draft-76 support, remove the loading of the
+draft-76 module along with the module configuration block. Here is how the
+example configuration could look under Mac OS X after removing the the
+<code>websocket_draft76_module</code> references:</p>
+
+<pre><code>LoadModule websocket_module   libexec/apache2/mod_websocket.so
+
+&lt;IfModule mod_websocket.c&gt;
+  &lt;Location /echo&gt;
+    SetHandler websocket-handler
+    WebSocketHandler libexec/apache2/mod_websocket_echo.so echo_init
+  &lt;/Location&gt;
+&lt;/IfModule&gt;
+</code></pre>
+
+<h2>
+<a name="authors" class="anchor" href="#authors"><span class="octicon octicon-link"></span></a>Authors</h2>
+
+<ul>
+<li>The original code was written by <code>self.disconnect</code>.</li>
+</ul><h2>
+<a name="license" class="anchor" href="#license"><span class="octicon octicon-link"></span></a>License</h2>
+
+<p>Please see the file called LICENSE.</p>
+      </section>
+    </div>
+
+    
+  </body>
+</html>
